@@ -7,3 +7,7 @@
 
 \l qsql.type.q
 \l qsql.funcs.q
+\l qsql.check.q
+\l qsql.sql.q
+\l qsql.ext.q
+\l qsql.test.q

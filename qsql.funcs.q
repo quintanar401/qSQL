@@ -265,7 +265,7 @@
 
 .qsql.f.isnull:.qsql.f.ifnull:{
   // The scalar function IFNULL/ISNULL returns value if expr is null. If expr is not null, IFNULL returns expr. Example: ifnull(price,0.0)
-  // @tpp {$[all x in 10 23;max x;y]}
+  // @tpp {$[all x in .qsql.t.qtypes?`a`A;max x;y]}
   // @t full All All
   // @d n n -> n
   // @tst isnull(1,2) -> 1;; isnull({n 'float'},1.1) -> 1.1;; ifnull('a','') -> 'a';; ifnull("aa","") -> "aa";; ifnull("a",'') -> "a";; ifnull('b',"a") -> "b"
@@ -281,11 +281,28 @@
   // @tst isnull({n 'float'},'a') -> Exc;; isnull(2,list(1,null)) -> Exc;; isnull(list(list(1)),2) -> Exc
   if[(::)~first x; if[2=count x 1;:y^x 2]; y:$[1=x[1;0];string y;y]; x:$[0=x[1;0];string;::]x 2]; / char/char vector
   if[-10=type x;x,:()]; if[-10=type y;y,:()];
-  if[all 9 30 in t:.qsql.t.qtypesMin .qsql.t.type each (x;y); x:.qsql.ff.strv x; y:.qsql.ff.strv y]; / convert sym -> str
-  if[(not all t in 9 30)&any 9 30 in t;'"Exc"];
+  if[all .qsql.t.tsC in t:.qsql.t.qtypesMin .qsql.t.type each (x;y); x:.qsql.ff.strv x; y:.qsql.ff.strv y]; / convert sym -> str
+  if[(not all t in .qsql.t.tsC)&any .qsql.t.tsC in t;'"Exc"];
   if[10=abs type first x; if[10=type x;:$[count x;x;y]]; i:where 0=count each x; :@[x;i;:;$[10=type y;count[i]#enlist y;y i]]];
   :y^x;
  };
+
+.qsql.f.is_null:{
+  // Returns true if a value is null, false otherwise. Example: val is null, val is not null
+  // @t full All
+  // @d n -> n
+  // @i null
+  if[10=abs type first x;'"Exc"]; / ignore strings
+  null x};
+
+.qsql.f.in_:{
+  // Check that arg1 is in arg2. Example: in_(val,list(1,2)), sym in ('a','b'), sym in (select distinct sym from trade)
+  // @t full All All
+  // @d n m -> n
+  if[(::)~first x; :(x 2)in y]; / char/char vector
+  t:.qsql.t.qtypes .qsql.t.type each (x;y);
+  if[any t in `C`Cc; if[not all t in `C`Cc`S`s; '"Exc"]; x:.qsql.ff.strv x; if[10=type y:.qsql.ff.strv y; y:enlist y]; :x in y];
+  x in y};
 
 .qsql.f.initcap:{
   // The scalar function INITCAP returns the result of the argument character expression after converting the first character to uppercase and the subsequent characters to lowercase. Example: initcap(str)
@@ -373,7 +390,7 @@
   $[type x:.qsql.ff.strv x;count x;count each x]};
 
 .qsql.f.list:{[i;l]
-  // Return arguments as a list/array. There must be at least 1 non null argument. Example: list(1,2)
+  // Return arguments as a list/array. There must be at least 1 non null argument. If there is one arg - a table with 1 column, return its column. Example: list(1,2), list(tbl)
   // @t .qsql.c.list All ...
   // @d m -> m
   // @tst list(1) -> Q enlist 1;; list(1,2) -> Q 1 2;; list("xx") -> Q enlist "xx";; list('z') -> Q enlist `z;; list("xx","yy") -> Q ("xx";"yy");; list('a','b') -> Q `a`b
@@ -734,15 +751,15 @@
   // @tst timestampadd('month',2,{t '10:10'}) -> Exc;; timestampadd('month',2,list({d '2010.03.12'})) -> list({d '2010.05.12'});; timestampadd('month',1,list(list({ts '2020.01.30D10'}))) -> list(list({ts '2020.02.29D10'}))
   // @tst timestampadd("quarter",2,{d '2010.03.12'}) -> {d '2010.09.12'};; timestampadd("quarter",2,cast({d '2020.03.12'} as qmonth)) -> {d '2020.09.01'};; timestampadd("quarter",1,{ts '2019.11.30D10'}) -> {ts '2020.02.29D10'}
   // @tst timestampadd('year',2,{d '2010.03.12'}) -> {d '2012.03.12'};; timestampadd('year',2,cast({d '2020.03.12'} as qmonth)) -> {d '2022.03.01'};; timestampadd('year',1,{ts '2020.02.29D10'}) -> {ts '2021.02.28D10'}
-  // @tst 
+  // @tst
   y:signum[y]*floor abs y; zt:first .qsql.t.qtypesMap .qsql.t.type z;
   if[not null i:.qsql.t.dInt t:.qsql.t.normType x;
-    if[not zt in 6 7 8; 'string[x]," can't be used with time value"];
+    if[not zt in .qsql.t.qtypes?`d`m`p; 'string[x]," can't be used with time value"];
     :.qsql.ff.addMonth[z;y*i];
   ];
   if[null i:.qsql.t.tInt t;'"bad interval: ",string x];
-  if[(j:t in `week`day)&zt in 1 2 3; 'string[x]," can't be used with time value"];
-  c:$[zt in 6 7;"d"$;zt in 1 2 3;"t"$;::];
+  if[(j:t in `week`day)&zt in .qsql.t.qtypes?`t`v`u; 'string[x]," can't be used with time value"];
+  c:$[zt in .qsql.t.qtypes?`d`m;"d"$;zt in .qsql.t.qtypes?`t`v`u;"t"$;::];
   :c z+i*y;
  };
 
@@ -754,8 +771,8 @@
   // @d 1 n n -> n
   // @tst timestampdiff('year',{d '2010.10.10'}, {d '2012.10.10'}) -> 2;; timestampdiff("month",{d '2010.10.10'}, list({ts '2010.12.10D0'},{ts '2010.11.10D'})) -> list(2,1)
   // @tst timestampdiff('quarter',list({d '2010.01.10'},{d '2010.10.10'}), {ts '2010.10.10D0'}) -> list(3,0);; timestampdiff('day',list({d '2010.10.10'},{d '2010.10.10'}), list({ts '2010.10.20D0'},{ts '2010.10.22D0'})) -> list(10,12)
-  // @tst timestampdiff('hour',list(list({t '10:10'})),current_date) -> 10
-  v:{$[.qsql.t.qtype[first first x]in 1 2 3;.z.D+x;"p"$x]}each (z;y);
+  // @tst timestampdiff('hour',list(list({t '10:10'})),current_date) -> list(list(-10))
+  v:{$[.qsql.t.qtype[first first x]in .qsql.t.qtypes?`t`v`u;.z.D+x;"p"$x]}each (z;y);
   if[not null i:.qsql.t.dInt t:.qsql.t.normType x; :signum[v]*floor abs v:(-)/[(`month$v)%i]];
   if[null i:.qsql.t.tInt t;'"bad interval: ",string x];
   :signum[v]*floor abs v:(-)/[v]%i;
@@ -1015,6 +1032,15 @@
   // @tst list(to_char('bb'),to_char('aa'))<='b' -> list(true,true);; list(to_char('aa'),to_char('aa'))<=list('ac','b') -> list(false,true)
   .qsql.ff.xeq[x;y]};
 
+.qsql.f.within:{
+  // Check that arg1 is within (arg2,arg3) range. Example: within(price,10,11), price between 10 and 11, price not between 10 and 11
+  // @t .qsql.c.within All All All
+  // @d n n n -> n
+  // @i within
+  // @tst within(2,2,3) -> true;; within(2,2.1,3.1) -> false;; within(2,2,3.1) -> true;; within('aa','a','b') -> true
+  if[any 10=abs type each (x;y;z); '"reject"]; // false reject to know when we can use the built-in within, handle strings via >=
+  x within (y;z)};
+
 .qsql.f.convert:{[x;y]
   // Cast the second argument (expression) to the type in the first expression (string). Example: cast({ts '2010.10.10D10:00'} as date) or extract(date from timeval) or convert(time,'date')
   // Also to cast between/to symbols and strings: cast(10.2 as 'char'), cast("string value" as 'symbol')
@@ -1035,7 +1061,7 @@
 .qsql.help:(`$())!();
 / transform exposed functions to capture exceptions and provide help.
 .qsql.ff.trans:{
-  .qsql.help[n:lower last` vs 0N!x]:"no help available";
+  .qsql.help[n:lower last` vs x]:"no help available";
   x set a:``f`fn`name`dims`tst`catch!(::;get x;` sv x,`f;n;`1`1;();0b);
   if[count s:s where not null first each ss[;" //"]each s:"\n"vs string a`f;
     if[count h:s where not i:"@"=first each s:trim 2_'ltrim s; .qsql.help[n]:"\n "sv h];
@@ -1053,7 +1079,7 @@
   if[````~last t; t:-1_t; a[`anum]:(<)[-1+count t]];  / unlimited number of args
   a[`atype]:t:distinct each .qsql.t.qtypes?t;
   a[`atnum]:count each t;
-  if[0=count t; a[`anum`atnum]:((0=);(),1); t:enlist (),13];
+  if[0=count t; a[`anum`atnum]:((0=);(),1); t:enlist (),.qsql.t.tj];
   a[`rtype]:.qsql.ff.makeTypeMap[a`fn;t;$[`tpp in key a;a`tpp;{y}]]; / result types
   a[`nulls]:a[`atnum]vs first where not null a`rtype; / find out suitable typed nulls
   if[not `full=first s; a[`tchk]:first s];
@@ -1069,19 +1095,10 @@
 .qsql.ff.exc:{[n;i;e] 'string[i]," ",string[n]," failed with ",e};
 
 / apply f to all x, adjust x to be a string
-/ .qsql.ff.str:{[f;x] $[all i:10=type each v:.qsql.ff.strv each x;f . x;f . @[x;where i;(count x first where not i)#enlist@]]};
 .qsql.ff.str1:{[f;x] s:(type x:.qsql.ff.strv x)=type x; $[s;::;`$]$[type x;f x;f each x]};
 .qsql.ff.str2:{[f;x;y] s1:(type x:.qsql.ff.strv x)=type x; s2:(type y:.qsql.ff.strv y)=type y; $[s1|s2;::;`$]$[type x;$[type y;f[x;y];x f/: y];type y;x f\: y;f'[x;y]]};
 .qsql.ff.strv:{$[(t:abs type first x)=11;string x;(19h<t)&77h>t;string value x;-10=type x;(),x;x]};
 .qsql.ff.symv:{$[(t:abs type first x)=10;`$x;(19h<t)&77h>t;value x;x]};
-/ cast all types to the type of the first entry
-.qsql.ff.adjType:{
-  if[1=count distinct abs type each x; x];
-  if[(t:abs .qsql.t.type x 0)in 50 30; :.qsql.ff.strv each x]; / syms->strings
-  if[t=31h; :.qsql.ff.symv each x]; / string -> sym, enum -> sym
-  if[t=0;:x];
-  {$[x=abs type y;y;x$y]}[t]each x; / simple conversion, if it fails it's the user's fault
- };
 
 .qsql.ff.day:{x-`date$`month$x:`date$x};
 .qsql.ff.dayofyear:{1+x-"d"$(1+`month$x)-`mm$x:"d"$x};
@@ -1091,7 +1108,7 @@
 .qsql.ff.user:{`undefined};
 .qsql.ff.database:{`undefined};
 
-/ purpose - return correct type for sym vs string
+/ purpose - return the correct type for sym vs string
 .qsql.ff.xeq:{[x;y]
   m:(.qsql.t.qtypes?`a`A`C`Cc)!(`;enlist`;`;enlist`); if[(t1:.qsql.t.type x) in key m; x:m t1]; if[(t2:.qsql.t.type y) in key m; y:m t2];
   if[1=sum(.qsql.t.qtypes t1,t2)in .qsql.t.tgroup`STR`a`A;'"exc"]; / do not allow num vs char
@@ -1101,191 +1118,22 @@
 .qsql.ff.convert:{[x;y;yt]
   xf:.qsql.t.castMap xx:.qsql.t.normType x;
   xn:$[-11=type x;string x;.qsql.t.qnames x];
-  if[y~(::); :.qsql.t.qnulls $[-11=type xf;14;10=xf;30;20-xf]]; / for date parts use int
-  if[xx in`char`varchar; :$[yt in 30 51;y;string y]]; / toString
-  if[(yt in 30 51)|s:yt in 10 23 9 31 52; :(upper .Q.t $[-11=type xf;14;xf])$$[s;string y;y]]; / fromString
-  if[yt in 1 39 60; :$[`timestamp=xx;(xx$0)+y;`date=xx;xx$0;@[xf$;y;{y;'" time can't be converted to ",x}xn]]]; / from time
-  if[yt in 7 6 33 34 54 55; :$[xx in `hour`minute`second;0;@[xf$;y;{y;'" date/month can't be converted to ",x}xn]]]; / month date
+  if[y~(::); :.qsql.t.qnulls $[-11=type xf;.qsql.t.ti;10=xf;.qsql.t.tC;.qsql.t.lmt1-xf]]; / for date parts use int
+  if[xx in`char`varchar; :$[yt in .qsql.t.tC,.qsql.t.tCc;y;string y]]; / toString
+  if[(yt in .qsql.t.tC,.qsql.t.tCc)|s:yt in .qsql.t.qtypes?`a`A`s`S`Ss; :(upper .Q.t $[-11=type xf;14;xf])$$[s;string y;y]]; / fromString
+  if[yt in .qsql.t.qtypes?`t`T`Tt; :$[`timestamp=xx;(xx$0)+y;`date=xx;xx$0;@[xf$;y;{y;'" time can't be converted to ",x}xn]]]; / from time
+  if[yt in .qsql.t.qtypes?`m`M`Mm`d`D`Dd; :$[xx in `hour`minute`second;0;@[xf$;y;{y;'" date/month can't be converted to ",x}xn]]]; / month date
   :@[xf$;y;{z;'.qsql.t.qnames[x]," can't be converted to ",y}[yt;xn]];
  };
 
 / create a type map (t1,...)->t for a function f
 .qsql.ff.makeTypeMap:{[f;args;pp]{y[z] .[{.qsql.t.type x . .qsql.t.qones (),y};(x;z);0N]}[f;pp] each cross/[args]};
 
-.qsql.ff.throw:{e:.ll.posErrIn[x;"J"$(n:y?" ")#y]; '"At ",e,":",n _ y};
-
-.qsql.ff.symN:0;
-.qsql.ff.gensym:{`$":sym",string .qsql.ff.symN+:1};
-
 / substitute syms from map x in y
 .qsql.ff.substn:{[n;x;y] $[-11=t:type y;$[y in key x;x y;y];(1<count y)&t in 11 0h;$[n=0;y;.z.s[n-1;x] each y];y]};
-
-.qsql.ff.runTestsFn:{[f]
-  if[0=count t:.qsql.f[f]`tst; :()];
-  :raze {[f;t]
-    a:@[.qsql.eval;t 0;::];
-    b:@[{$["Q"=first x;value 2_x;"Exc"~x;x;.qsql.eval x]};t 1;::];
-    if[(10=type a)&b~"Exc"; if[a like "At *";:()]];
-    :$[a~b;();enlist string[f]," test [",(";"sv t),"] failed with [",.Q.s1[a],";",.Q.s1[b],"]"];
-  }[f] each t;
- };
-
-.qsql.eval:{[s]
-  p:.ll.parse s:.ll.lexer s;
-  :@[{eval first 0N!.qsql.c.check x};p;{e:.ll.posErrIn[x;"J"$(n:y?" ")#y]; '$[n=count y;y;"At ",e,":",n _ y]}s];
- };
-
-.qsql.c.check:{
-  if[0=type x;
-    if[(3=count x)&-11=type n:x 0; / (`fn;pos;(args))
-      if[n in key .qsql.f; :.qsql.c.checkSysFn x];
-    ];
-    '"not impl";
-  ];
-  :(x;.qsql.t.qtype x;`1);
- };
-/ calculate arg types+dims, return type, fix nulls. Returns: ((exprs;types;dims);rtype)
-.qsql.c.checkTypes:{[f;a;pos]
-  if[0=count a; :(enlist (1;13;`1);f[`rtype]0)]; / 0 args functions
-  if[(null t:f[`rtype]f[`atnum]sv i)|any j:f[`atnum]=i:f[`atype]?'at:(a:.qsql.c.check each a)[;1];
-    / try to recover if the problem is in nulls
-    if[not (all 62=at j)&count j:where j;
-      'string[pos]," invalid argument type(s)",$[any j;", position(s): "," "sv string 1+j;""],", inferred types: ",", "sv .qsql.t.qnames at;
-    ];
-    if[null t:f[`rtype]f[`atnum]sv @[i;j;:;nn:f[`nulls]j];
-      'string[pos]," can't assign types to nulls, inferred types: ",", "sv .qsql.t.qnames at;
-    ];
-    a:.[a;(j;0);:;.qsql.t.qnulls nt:f[`atype;j]@'nn];
-    a:.[a;(j;1);:;nt];
-    a:.[a;(j;2);:;?[(nt=30)|nt<20;`1;`m]];
-  ];
-  :(a;t);
- };
-/ create expr: f - function, a - arg exprs, rt - return type, dim - (prefix expr;return dim)
-/ returns either ((f;a);rt;rdim) or (dim[0],(f;(enlist;a));rt;rdim) - the second is needed when there may be length error
-.qsql.c.retExpr:{[f;a;rt;dim] ($[c:count dim 0;dim[0],(f;enlist[enlist],a);enlist[f],a];rt;dim 1)};
-/ type check for a general lib function (name;pos;args)
-.qsql.c.checkSysFn:{
-  if[not((f:.qsql.f n:x 0)`anum) count a:x 2;
-    / try to recover if there are optional args
-    if[`opt in key f; if[not ()~first o:count[a]_f`opt; a:a,o]];
-    if[not f[`anum] count a; 'string[x 1]," invalid number of args in ",string n];
-  ];
-  if[`tchk in key f; :f[`tchk][f;a;x 1]];
-  a:.qsql.c.checkTypes[f;a;x 1]; / (arg type info;ret type)
-  if[any i:a[0;;1] in 10 23; a[0;0;0]:(enlist;::;where i;a[0;0;0])]; / hack, need to somehow indicate char vectors
-  if[(f`catch)&0=count first dim:.qsql.c.getDim[f;a[0;;2];x 1]; dim[0]:({.[y;z;{'string[x]," ",y}x]};x 1)];
-  :.qsql.c.retExpr[f`fn;a[0;;0];a 1;dim];
- };
-/ list function
-.qsql.c.list:{[f;l;pos]
-  t:(l:.qsql.c.check each l)[;1]; l:l[;0];
-  if[(any tt=23)|(any 40<tt)|not 1=count tt:distinct t except 62;
-    if[not(2=count tt)&(all tt in 9 30)|all tt in 31 51;
-      'string[pos],$[0=count tt;" non null is expected in list";any 40<tt;" list arguments must be atoms or typed vectors";
-        any 23=tt;" lists of char vectors are not allowed, use strings";" all arguments must have the same type in list"],", inferred types: ",", "sv .qsql.t.qnames t;
-    ];
-    l:@[l;where t in 9 31;{(string;x)}]; / if there are syms and strings cast all to string
-    tt:(),.qsql.t.type l 0;
-  ];
-  if[any i:t=62;l:@[l;i;:;.qsql.t.getnull[tt 0;i:where i]]];
-  :(enlist[enlist],l;$[10=tt:tt 0;23;(21*tt>20)+20+abs tt-20];`m); / promote tt 1 step up
- };
-/ all kinds of = > <
-.qsql.c.xeq:{[f;a;pos] a:.qsql.c.checkTypes[f;a;pos]; dim:.qsql.c.getDim[f;a[0;;2];pos]; .qsql.c.xeq0[f;a;dim;pos]};
-.qsql.c.xeq0:{[f;aa;dim;pos]
-  a:first aa;
-  if[any i:(t:a[;1])in 30 51 10 23; / strings + char column
-    a:.[a;(where not i;0);{(string;x)}]; / convert syms -> str
-    if[any i:t in 10 23; / char column, make another arg char too
-      if[not all i; a:.[a;(where not i;0);{({$[-10=type x;x;$[type x;@;each][{$[1=count x;x 0;"\000"]};x]]};x)}]];
-      :.qsql.c.retExpr[f`fn;a[;0];aa 1;dim]; / keep the original fns
-    ];
-    ad:$[all t:t in 51 31;';t 0;\:;t 1;/:;::];
-    fn:$[`eq=n:f`name;ad(~);`neq=n;(')[not;ad(~)];`lt=n;ad .qsql.ff.strlt;`gt=n;ad .qsql.ff.strgt;`lte=n;(')[not;ad .qsql.ff.strgt];(')[not;ad .qsql.ff.strlt]];
-    :.qsql.c.retExpr[fn;a[;0];aa 1;dim];
-  ];
-  :.qsql.c.retExpr[f`fn;a[;0];aa 1;dim];
- };
-.qsql.c.typefn:{[f;a;pos] a:.qsql.c.check each a; (.qsql.t.qnames a[0;1];30;`1)};
-.qsql.c.convert:{[f;a;pos]
-  a:$[(::)~a 0;.[;0 0;:;::];::] first .qsql.c.checkTypes[f;a;pos]; / restore null
-  if[not(type t:a[1;0])in 10 11h; 'string[pos]," convert requires explicit type argument as a string/symbol"];
-  if[null tt:.qsql.t.castMap .qsql.t.normType t:$[10=type t;t;t 0]; 'string[pos]," unknown type ",string t];
-  if[null rt:(.qsql.t.qtypesMap $[-11=type tt;14;10=tt;30;20-tt])(.qsql.t.qtypesMap t)?t:a[0;1]; 'string[pos]," can't convert ",.qsql.t.qnames[t]," to ",$[-11=type tt;string tt;.qsql.t.qnames 20-tt]];
-  dim:.qsql.c.getDim[f;a[;2];pos];
-  :(({[p;t;x;y].[.qsql.ff.convert;(y;x;t);{'string[x]," ",y}p]};pos;t),a[;0];rt;dim 1);
- };
-.qsql.c.decode:{[f;a;pos]
-  if[noA0:()~a 0; a[0]:1]; if[df:count[a]mod 2; a:a,(::)]; if[nif:`:dec~last a; a:(-1_a),(::)];
-  t:(a:$[nif;{(-1_x),enlist`:dec,1_first x};::] .qsql.c.check each a)[;1]; v:a[;0];
-  ic:1+2*til (count[t]-1)div 2; iv:(ic+1),count[t]-1;
-  / nulls
-  if[(all vi:62=t iv)|(noA0&all ci:62=t ic)|62=t 0; :(::;62;`1)]; / main expr is null, subconds are null or value expr are null
-  if[any vi;v:@[v;i;:;.qsql.t.getnull[it:.qsql.t.qtypesMin t iv first where not vi;i:iv where vi]]; t:@[t;i;:;it]]; / fix nulls
-  if[any ci;
-    if[not noA0; v:@[v;i;:;.qsql.t.getnull[it:.qsql.t.qtypesMin t 0;i:ic where ci]]; t:@[t;i;:;it]]; / case expr when null ...
-    if[noA0; ic:ic ci:where ci; iv:iv 1+ci]; / case when null then ..  -- just remove null conditions
-  ];
-  / condtional expr
-  if[not noA0; / check that all exp0=expN are correct
-    if[any i:{(null x[`rtype]x[`atnum]sv i)|any x[`atnum]=i:x[`atype]?'(y;z)}[.qsql.f.eq;t 0] each t ic;
-      'string[first pos]," types in the following conditions are incompatible with the main value: ",(" "sv string 1+(ic where i) div 2),", inferred types: ",", "sv .qsql.t.qnames neg[df]_t;
-    ];
-    c:first each .qsql.c.xeq0[.qsql.f.eq;;(();`n);first pos] each (;0) each ((`:dec;t 0);) each flip (v;t)[;ic]; / check each condition against the first value, there will be no exc
-  ];
-  if[noA0; c:v ic; if[not all t[ic]in 19 21; 'string[first pos]," all conditions must have boolean or boolean[] type, inferred condition types: ",", "sv .qsql.t.qnames t ic]];
-  / value expressions
-  if[1<>count distinct .qsql.t.qtypesMin d:t iv;
-    'string[first pos]," all values in decode/case must have the same type, inferred value types: ",", "sv .qsql.t.qnames t neg[df]_iv;
-  ];
-  :((`.qsql.c.decode2;$[noA0;::;a[0;0]];enlist c,1b;enlist v iv;enlist (count[iv],2)#1_count[a]#pos;max d);max d;$[all `1=dim:a[;2] 0,iv;`1;`n in dim;`n;`m]);
- };
-.qsql.c.decode2:{[cc;c;v;pos;rt]
-  f:$[(::)~cc;::;.qsql.ff.substn[3;enlist[`:dec]!enlist $[(abs type cc) in 11 0h;enlist cc;cc]]];
-  :last .qsql.c.decode3[f;rt]/[(1b;::);c;v;pos];
- };
-.qsql.c.decode3:{[f;rt;b;c;v;pos]
-  if[not any b 0;:b];
-  c:@[eval;f c;{'string[x],$[y~"length";" arguments must be atoms/equal length vectors";y like "[0-9]*";y;" ",y]}pos 0]; / c must be a bool or bool[]
-  if[(0>type b 0)&isV:0<type c; b:count[c]#/:enlist each b]; / convert b into vector
-  if[isV&count[c]<>count b 0; 'string[pos 0]," incompatible length: expected ",string[count b 0],", got ",string count c];
-  if[$[isb:0>type b 0;not i:c;0=count i:where c&b 0]; :b]; b[0]:$[isb;0b;@[b 0;i;:;0b]];
-  if[isb&isV:((23=rt)|not 10=type v)&0<=type v:eval f v; b:count[v]#/:enlist each b; isb:0b];
-  if[isV&count[v]<>count b 0; 'string[pos 1]," incompatible length: expected ",string[count b 0],", got ",string count v];
-  b[1]:$[isb;v;@[b 1;i;:;$[isV;v i;10=type v;count[i]#enlist v;v]]];
-  :b;
- };
-.qsql.c.greatest:{[f;a;pos] .qsql.c.checkSysFn {(`or;x;(y;z))}[pos]/[a]};
-.qsql.c.least:{[f;a;pos] .qsql.c.checkSysFn {(`and;x;(y;z))}[pos]/[a]};
-.qsql.c.nullif:{[f;a;pos] .qsql.c.checkSysFn (`decode;pos;(a 0;a 1;::;`:dec))};
-/ ideal.real -> 1 means either atom or irrelevant, n means vector with some fixed size (column in a table), m - unknown/irrelevant
-.qsql.c.dMap:(!). flip(`1.1`1;`1.n`e;`1.m`m;`n.1`1;`m.1`1;`n.n`n;`n.m`m;`m.n`1;`m.m`1);
-/ get the return dimension, (fn;input dims;pos) -> (() or (`check;pos);return dim)
-.qsql.c.getDim:{[a;d;i]
-  if[`e in d:0N!.qsql.c.dMap` sv/:((di:a[`dims]) 0),'d;'string[i]," atomic value is expected in args"];
-  :($[(1<sum`m=d)|all`n`m in d;(`.qsql.c.dcheck;i);()];$[(rt:di 1)in`1`m;rt;`n in d;`n;all`1=d;`1;`m]);
- };
-.qsql.c.dcheck:{[i;f;a]
-  0N!(`dcheck;f;a);
-  // if[1<count distinct count each ai where -1<type each ai:a idx; 'string[i]," all arguments in positions ",(" "sv string 1+idx)," must be atoms/equal length vectors"];
-  :.[f;a;{'string[x],$[y~"length";" arguments must be atoms/equal length vectors";" ",y]}i];
- };
 
 .qsql.ff.trans each ` sv/:`.qsql.f,/:`plus`list`mult`minus`divide`div`eq`neq`gt`lt`gte`lte`to_char`type`convert`not`or`and`year`week`upper`ucase`trim`translate,
   `timestampdiff`current_date`curdate`current_timestamp`now`getdate`curtime`current_user`user`database`dayname`dayofmonth`dayofweek`dayofyear`degrees`exp`floor,
   `neg`abs`acos`add_month`asin`atan`atan2`ceiling`char`ascii`concat`cos`cot`decode`greatest`hour`isnull`ifnull`initcap`insert`instr`last_day`lower`lcase`least,
   `left`octet_length`len`length`locate`localtime`localtimestamp`log`log10`lpad`ltrim`minute`mod`monthname`month`month_between`next_day`nullif`pi`power`prefix,
-  `quarter`radians`rand`repeat`replace`right`truncate`round`rpad`rtrim`second`sign`sin`soundex`difference`space`sqrt`substring`suffix`tan`timestampadd
--1 raze .qsql.ff.runTestsFn each `plus`list`mult`minus`divide`div`eq`neq`gt`lt`gte`lte`to_char`type`convert`not`or`and`year`week`upper`trim`translate`timestampdiff`current_date,
-  `now`current_user`database`dayname`dayofmonth`dayofweek`dayofyear`degrees`exp`floor`neg`abs`acos`add_month`asin`atan`atan2`ceiling`char`ascii`concat`cos`cot`decode`greatest,
-  `hour`isnull`initcap`insert`instr`last_day`lower`least`left`len`locate`localtime`localtimestamp`log`log10`lpad`ltrim`minute`mod`monthname`month`month_between`next_day`nullif,
-  `pi`power`prefix`quarter`radians`rand`repeat`replace`right`round`rpad`rtrim`second`sign`sin`soundex`difference`space`sqrt`substring`suffix`tan`timestampadd
-.S.e:{.qsql.eval x};
-
-/ .qsql.ff.runTestsFn`list
-
-/
-.qsql.eval "\"1\"=list('1','aa')"
-.qsql.eval "\"1\"=1"
-S)"ab">=list("ab","cd")
+  `quarter`radians`rand`repeat`replace`right`truncate`round`rpad`rtrim`second`sign`sin`soundex`difference`space`sqrt`substring`suffix`tan`timestampadd`within`is_null`in_;

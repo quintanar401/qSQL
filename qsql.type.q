@@ -8,16 +8,31 @@
 .qsql.t.dInt:`month`quarter`year!1 3 12;
 
 / Native types - atom + vector + vector of vector
-.qsql.t.qtypes:(`Lst^`$(reverse[string .Q.t],1_upper .Q.t),upper[.Q.t],'.Q.t),`Nul;
+.qsql.t.qtypes:(`Lst^`$(reverse[string .Q.t],1_upper .Q.t),upper[.Q.t],'.Q.t),`Nul`Tbl;
 @[`.qsql.t.qtypes;10 23;:;`a`A]; / Use name "a" for char columns
 @[`.qsql.t.qtypes;0 40 61;:;`k`K`Kk]; / enumerations
 .qsql.t.qtypesMap:{raze{x!count[x]#enlist x}each (til count x)value group distinct each lower string x}.qsql.t.qtypes; / type -> similar types: s -> s S sS
-.qsql.t.qtypesMin:min each .qsql.t.qtypesMap;
+.qsql.t.qtypesMin:min each .qsql.t.qtypesMap; / base type: S,Ss -> s
+.qsql.t.qtypesNxt:raze {-1_x!next x} each .qsql.t.qtypesMap; / next type: s -> S
+.qsql.t.q2qtype:{(v,u)!`$u,(u:upper v),'v:.Q.t except " "}[]; / map from q char types ("j") -> sql types
+.qsql.t.q2qtype["c"]:`A; / char list, not string
+.qsql.t.lmt1:1+.qsql.t.qtypes?`b; / first block - atoms
+.qsql.t.tnul:.qsql.t.qtypes?`Nul;
+.qsql.t.tj:.qsql.t.qtypes?`j;
+.qsql.t.ti:.qsql.t.qtypes?`i;
+.qsql.t.ts:.qsql.t.qtypes?`s;
+.qsql.t.tS:.qsql.t.qtypes?`S;
+.qsql.t.tC:.qsql.t.qtypes?`C;
+.qsql.t.tsC:.qsql.t.qtypes?`s`C;
+.qsql.t.tCc:.qsql.t.qtypes?`Cc;
+.qsql.t.ta:.qsql.t.qtypes?`a;
+.qsql.t.tA:.qsql.t.qtypes?`A;
+.qsql.t.tK:.qsql.t.qtypes?`K;
 
 .qsql.t.qtypes_a:.qsql.t.qtypes where{lower[x]=x:x[;0]} string .qsql.t.qtypes; / atoms
 .qsql.t.qtypes_aA:distinct`j,.qsql.t.qtypes where 1=count each string .qsql.t.qtypes; / atoms + vectors
-.qsql.t.qtypes_aAa:distinct`j,.qsql.t.qtypes except `Lst`Nul; / atoms + vectors + vectors of vectors
-.qsql.t.qtypes_n:distinct`j,.qsql.t.qtypes except`Cc`Ss`g`G`Gg`C`s`S`Lst`Nul`A`a; / numeric types, put j in front to make it the default null type
+.qsql.t.qtypes_aAa:distinct`j,.qsql.t.qtypes except `Lst`Nul`Tbl; / atoms + vectors + vectors of vectors
+.qsql.t.qtypes_n:distinct`j,.qsql.t.qtypes except`Cc`Ss`g`G`Gg`C`s`S`Lst`Nul`Tbl`A`a; / numeric types, put j in front to make it the default null type
 
 / type groups
 .qsql.t.tgroup:(!). flip(
@@ -37,15 +52,15 @@
 
 / Primitives: nulls and non-nulls
 / .qsql.t.qnulls:({$[(x in -20 20 41h)|(.qsql.t.qtypes x+20)=`Lst;();21>x;(abs[x]$())1;("h"$x-21)$()]} each "h"$-20+til -1+count .qsql.t.qtypes),(::);
-.qsql.t.qnulls:({$[(x in -20 20 41h)|(.qsql.t.qtypes x+20)=`Lst;();x=3;"";x=-11;(),`;0>x;(abs[x]$())1;21>x;x$();()]} each "h"$-20+til -1+count .qsql.t.qtypes),(::);
-.qsql.t.qones:{a:x~u:upper x; v:$["Lst"~x;:enlist (::);x~"Nul";::;(f:first u)in"ZDM";lower[f]$10;f="A";" ";f="K";`1;f$"10"]; $[a;enlist v;2=count u;enlist enlist v;v]} each string .qsql.t.qtypes;
-.qsql.t.qnames:{$[x~(::);"null";x~enlist(::);"list";x~" ";"char";x~()," ";"string";0>type x;string key (),x;.z.s[first x],"[]"]} each .qsql.t.qones;
-.qsql.t.qnames[23]:"char[]";
+.qsql.t.qnulls:({$[(t:.qsql.t.qtypes x)in`k`K`Kk`Lst;();t=`A;"";t=`s;(),`;0>x:"h"$x-.qsql.t.lmt1;(abs[x]$())1;x<.qsql.t.lmt1+1;x$();()]} each til -1+count .qsql.t.qtypes),(::);
+.qsql.t.qones:{a:x~u:upper x; v:$["Lst"~x;:enlist (::);x~"Nul";::;x~"Tbl";([]a:1#1);(f:first u)in"ZDM";lower[f]$10;f="A";" ";f="K";`1;f$"10"]; $[a;enlist v;2=count u;enlist enlist v;v]} each string .qsql.t.qtypes;
+.qsql.t.qnames:{$[x~(::);"null";x~enlist(::);"list";x~" ";"char";x~()," ";"string";98=type x;"table";0>type x;string key (),x;.z.s[first x],"[]"]} each .qsql.t.qones;
+.qsql.t.qnames[.qsql.t.tA]:"char[]";
 
 / odbc type to q type map + q types
-.qsql.t.odbc2q:(`char`varchar`tinyint`smallint`integer`bigint`double`numeric!(10;10;16;15;14;13;11;11)),
+.qsql.t.odbc2q:(`char`varchar`tinyint`smallint`integer`bigint`double`numeric!.qsql.t.qtypes?`a`a`x`h`i`j`f`f),
    {(@[;where k in`minute`second`month;{`$"q",string x}] k:key each 0#'.qsql.t.qones t)!t:(til 20) except 0 17 10}[];
-.qsql.t.castMap:("h"$20-.qsql.t.odbc2q),.qsql.t.t2qt;
+.qsql.t.castMap:("h"$.qsql.t.lmt1-.qsql.t.odbc2q),.qsql.t.t2qt;
 
 / get null for an odbc type
 .qsql.t.null:{$[x in key m:.qsql.t.odbc2q;.qsql.t.qnulls m x;0N]};
@@ -59,15 +74,9 @@
 / normalize odbc type name
 .qsql.t.normType:{$[(x:lower$[10=type x;x;string x])~"sql_tsi_frac_second";`frac;`$last "_" vs x]};
 
-/ return type with a enum mapped to a normal type, functions/tables/dicts mapped to 0
-.qsql.t.type:{$[not t:type x;$[(first[t]within 1 20h)&1=count t:distinct type each x;21+.z.s x 0;41];x~(::);62;76<t;count .qsql.t.qtypes;20>abs t;20+t;11=abs t:type value key x;20+t;14 26 t>0]};
+/ return type with a enum mapped to a normal type, functions
+.qsql.t.type:{$[not t:type x;$[(first[t]within 1 20h)&1=count t:distinct type each x;.qsql.t.lmt1+1+.z.s x 0;1+.qsql.t.lmt1*2];x~(::);.qsql.t.tnul;76<t;count .qsql.t.qtypes;20>abs t;.qsql.t.lmt1+t;11=abs t:type value key x;.qsql.t.lmt1+t;(.qsql.t.qtypes?`i`I) t>0]};
 .qsql.t.qtype:{.qsql.t.type $[type[x]in 0 11h;$[1=count x;x 0;x];x]}; / like type but for eval expressions
-
-/ return select what expression
-.qsql.t.what:{[v1;v2] v:enlist[v1],v2; ({@/[x;v;:;`$string[key g]{$[1=count y;(),x;x,/:y]}'string til each count each v:value g:group x]}`xcol^{$[null x;first .qsql.t.e2syms[x],`;x]}each v[;0])!v[;1]};
-
-/ extract all names except function names from an expression
-.qsql.t.e2syms:{$[not type x;raze .z.s each 1_x;-11=type x;x;0#`]};
 
 / Check name against internal functions/other names.
 .qsql.t.resolveName:{$[(l:lower x)in key .qsql.F;` sv `.sql.F,l;x]};
@@ -85,3 +94,11 @@
   if[x=`fn; :y];
   '"special value: unknown format"
  };
+
+.qsql.t.throw:{e:.ll.posErrIn[x;"J"$(n:y?" ")#y]; '$[n=count y;y;"At ",e,":",n _ y]};
+
+.qsql.t.classes:`small`big`splayed`parted;
+
+.qsql.t.trNew:{enlist each (0;0#0),x};
+.qsql.t.trAddL:{@[x;::;,;.qsql.t.trNew y]; -1+count (get x)0};
+.qsql.t.trAddN:{@[x;::;,;enlist each (0;z),y]; .[x;(0;z);:;c:-1+count get x]; c};
